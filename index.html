@@ -1,0 +1,139 @@
+<html lang="pt-BR">
+<head>
+  <!-- ...existing content... -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Finanças Pessoais — Multiusuário</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "sql.js": "https://cdn.jsdelivr.net/npm/sql.js@1.10.2/dist/sql-wasm.js",
+      "idb-keyval": "https://esm.sh/idb-keyval@6.2.1",
+      "./db.js": "./db.js",
+      "./investment-ideas.js": "./investment-ideas.js",
+      "./app.js": "./app.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- ...existing content... -->
+  <header class="topbar">
+    <div class="brand">Finanças</div>
+    <div class="workspace">
+      <input id="workspaceInput" placeholder="Espaço de trabalho (ex: seu email)" />
+      <button id="enterWorkspaceBtn">Entrar</button>
+    </div>
+  </header>
+
+  <main class="container">
+    <section id="authHint" class="card muted">
+      <p>Entre com um “espaço de trabalho” para carregar seu banco local. Ex: joao@exemplo.com</p>
+    </section>
+
+    <section id="dashboard" class="grid hidden">
+      <div class="card kpis">
+        <div class="kpi">
+          <div class="kpi-label">Saldo</div>
+          <div class="kpi-value" id="kpiSaldo">R$ 0,00</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Receitas (mês)</div>
+          <div class="kpi-value pos" id="kpiReceitas">R$ 0,00</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Despesas (mês)</div>
+          <div class="kpi-value neg" id="kpiDespesas">R$ 0,00</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Lançar transação</h3>
+        <form id="txForm" class="tx-form">
+          <select id="txTipo">
+            <option value="receita">Receita</option>
+            <option value="despesa">Despesa</option>
+          </select>
+          <input id="txDescricao" placeholder="Descrição" required />
+          <input id="txValor" type="number" step="0.01" placeholder="Valor" required />
+          <input id="txData" type="date" />
+          <select id="txClasse">
+            <option value="fixa">Fixa</option>
+            <option value="variavel">Variável</option>
+            <option value="esporadica">Esporádica</option>
+          </select>
+          <input id="txCategoria" placeholder="Categoria (ex: Mercado, Aluguel)" />
+          <input id="txConta" placeholder="Conta (ex: Carteira, Banco)" />
+          <input id="txObs" placeholder="Observação (opcional)" />
+          <input id="txRepeat" type="number" min="1" max="36" value="1" placeholder="Repetir (meses)" />
+          <button type="submit">Adicionar</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="row space-between">
+          <h3>Transações</h3>
+          <div class="filters">
+            <select id="fMes"></select>
+            <select id="fAno"></select>
+            <select id="fClasse">
+              <option value="">Todas</option>
+              <option value="fixa">Fixas</option>
+              <option value="variavel">Variáveis</option>
+              <option value="esporadica">Esporádicas</option>
+            </select>
+            <select id="fTipo">
+              <option value="">Receitas/Despesas</option>
+              <option value="receita">Receitas</option>
+              <option value="despesa">Despesas</option>
+            </select>
+          </div>
+          <button id="btnExportCsv">Exportar CSV</button>
+        </div>
+        <div id="txList" class="tx-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>Importar via WhatsApp/CSV</h3>
+        <p class="muted small">Cole mensagens no formato: "+ 1200 Salário fixa" ou "- 45 mercado variavel". Uma por linha. CSV: tipo,descricao,valor,data(YYYY-MM-DD),classe</p>
+        <textarea id="importBox" rows="6" placeholder="+ 3500 salario fixa
+- 120 mercado variavel
+- 89.90 academia fixa"></textarea>
+        <div class="row">
+          <button id="btnParseImport">Pré-visualizar</button>
+          <button id="btnApplyImport" disabled>Importar</button>
+        </div>
+        <div id="importPreview" class="import-preview"></div>
+      </div>
+
+      <div class="card">
+        <h3>Ideias de investimentos</h3>
+        <div id="ideas" class="ideas"></div>
+        <div class="calc">
+          <h4>Calculadora de juros compostos</h4>
+          <div class="calc-grid">
+            <input id="cInicial" type="number" step="0.01" placeholder="Aporte inicial (R$)" />
+            <input id="cMensal" type="number" step="0.01" placeholder="Aporte mensal (R$)" />
+            <input id="cTaxa" type="number" step="0.01" placeholder="Taxa mensal (%)" />
+            <input id="cMeses" type="number" placeholder="Meses" />
+          </div>
+          <button id="calcBtn">Calcular</button>
+          <div id="calcOut" class="muted"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer muted small">
+    Feito para uso local. Opcional: integre WhatsApp via Worker (veja README).
+  </footer>
+
+  <script type="module">
+    import "./app.js";
+  </script>
+  <!-- ...existing content... -->
+</body>
+</html>
