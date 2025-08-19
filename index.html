@@ -1,12 +1,13 @@
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <!-- ...existing content... -->
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Finanças Pessoais — Multiusuário</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script type="importmap">
   {
     "imports": {
@@ -20,7 +21,6 @@
   </script>
 </head>
 <body>
-  <!-- ...existing content... -->
   <header class="topbar">
     <div class="brand">Finanças</div>
     <div class="workspace">
@@ -69,8 +69,18 @@
           <input id="txConta" placeholder="Conta (ex: Carteira, Banco)" />
           <input id="txObs" placeholder="Observação (opcional)" />
           <input id="txRepeat" type="number" min="1" max="36" value="1" placeholder="Repetir (meses)" />
+          
+          <input type="hidden" id="txId" />
           <button type="submit">Adicionar</button>
+          <button type="button" id="btnCancelEdit" class="hidden">Cancelar Edição</button>
         </form>
+      </div>
+
+      <div class="card">
+        <h3>Despesas por Categoria (mês)</h3>
+        <div class="chart-container" style="position: relative; height:250px; width:100%">
+          <canvas id="categoryChart"></canvas>
+        </div>
       </div>
 
       <div class="card">
@@ -90,6 +100,7 @@
               <option value="receita">Receitas</option>
               <option value="despesa">Despesas</option>
             </select>
+            <button id="btnClearFilters" title="Limpar Filtros">Limpar</button>
           </div>
           <button id="btnExportCsv">Exportar CSV</button>
         </div>
@@ -134,6 +145,5 @@
   <script type="module">
     import "./app.js";
   </script>
-  <!-- ...existing content... -->
 </body>
 </html>
