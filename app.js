@@ -1,4 +1,3 @@
-/* ...existing code... */
 import { openWorkspace, addTx, bulkAddTx, query, kpis, listMonthsYears, persist, deleteTx, updateTx } from "./db.js";
 import { ideas, formatCurrencyBRL, jurosCompostos } from "./investment-ideas.js";
 
@@ -11,6 +10,7 @@ const els = {
   kpiReceitas: document.getElementById("kpiReceitas"),
   kpiDespesas: document.getElementById("kpiDespesas"),
   txForm: document.getElementById("txForm"),
+  txId: document.getElementById("txId"), // <-- CORREÇÃO: Adicionado
   txTipo: document.getElementById("txTipo"),
   txDesc: document.getElementById("txDescricao"),
   txValor: document.getElementById("txValor"),
@@ -37,10 +37,13 @@ const els = {
   calcBtn: document.getElementById("calcBtn"),
   calcOut: document.getElementById("calcOut"),
   btnExport: document.getElementById("btnExportCsv"),
+  btnCancelEdit: document.getElementById("btnCancelEdit"), // <-- CORREÇÃO: Adicionado
+  btnClearFilters: document.getElementById("btnClearFilters"), // <-- FUNCIONALIDADE EXTRA
 };
 
 let currentFilters = { mes: pad2(new Date().getMonth()+1), ano: String(new Date().getFullYear()), classe: "", tipo: "" };
 let parsedImport = [];
+let categoryChart = null;
 
 els.wsBtn.addEventListener("click", async () => {
   const name = els.wsInput.value.trim();
@@ -52,27 +55,50 @@ els.wsBtn.addEventListener("click", async () => {
   refresh();
 });
 
+// CORREÇÃO: Listener de formulário atualizado para lidar com Adicionar e Atualizar
 els.txForm.addEventListener("submit", async (e) => {
   e.preventDefault();
-  const data0 = els.txData.value || new Date().toISOString().slice(0,10);
-  const repeat = Math.max(1, Number(els.txRepeat.value||1));
-  const base = {
+  const id = Number(els.txId.value);
+  const data = {
     tipo: els.txTipo.value,
     descricao: els.txDesc.value.trim(),
     valor: Number(els.txValor.value),
+    data: els.txData.value || new Date().toISOString().slice(0, 10),
     classe: els.txClasse.value,
     categoria: els.txCategoria.value.trim(),
     conta: els.txConta.value.trim(),
     obs: els.txObs.value.trim()
   };
-  for (let i=0;i<repeat;i++){
-    const d = addMonthsISO(data0, i);
-    addTx({ ...base, data: d });
+
+  if (id) {
+    // Se tem ID, é uma atualização
+    updateTx({ ...data, id: id });
+  } else {
+    // Senão, é uma nova transação (com possível repetição)
+    const repeat = Math.max(1, Number(els.txRepeat.value || 1));
+    for (let i = 0; i < repeat; i++) {
+      const d = addMonthsISO(data.data, i);
+      addTx({ ...data, data: d });
+    }
   }
+
   await persist();
-  els.txForm.reset();
+  resetForm();
   refresh();
 });
+
+// CORREÇÃO: Listener para o botão de cancelar edição
+els.btnCancelEdit.addEventListener("click", () => {
+  resetForm();
+});
+
+function resetForm() {
+    els.txForm.reset();
+    els.txId.value = "";
+    els.txRepeat.disabled = false;
+    els.txForm.querySelector("button[type='submit']").textContent = "Adicionar";
+    els.btnCancelEdit.classList.add("hidden");
+}
 
 function initFilters() {
   const months = [
@@ -106,6 +132,7 @@ function refresh() {
   els.kpiReceitas.textContent = formatCurrencyBRL(k.receitas);
   els.kpiDespesas.textContent = formatCurrencyBRL(k.despesas);
   renderIdeas();
+  renderCharts(rows); // Renderiza o gráfico
 }
 
 function renderTx(rows) {
@@ -130,6 +157,42 @@ function renderTx(rows) {
     </div>
   `).join("");
 }
+
+// CORREÇÃO: Listener de clique na lista de transações atualizado
+els.txList.addEventListener("click", async (e) => {
+  const row = e.target.closest(".tx-row");
+  if (!row) return;
+  const id = Number(row.dataset.id);
+
+  if (e.target.classList.contains("del")) {
+    if (!confirm("Excluir esta transação?")) return;
+    deleteTx(id); await persist(); refresh(); return;
+  }
+
+  if (e.target.classList.contains("edit")) {
+    const item = query({}).find(x => x.id === id); // Busca em todas as transações
+    if (!item) return;
+
+    // Popula o formulário com os dados da transação
+    els.txId.value = item.id;
+    els.txTipo.value = item.tipo;
+    els.txDesc.value = item.descricao;
+    els.txValor.value = item.valor;
+    els.txData.value = item.data;
+    els.txClasse.value = item.classe;
+    els.txCategoria.value = item.categoria || "";
+    els.txConta.value = item.conta || "";
+    els.txObs.value = item.obs || "";
+    els.txRepeat.value = "1";
+    els.txRepeat.disabled = true;
+
+    // Muda o texto do botão e mostra o botão de cancelar
+    els.txForm.querySelector("button[type='submit']").textContent = "Atualizar";
+    els.btnCancelEdit.classList.remove("hidden");
+    els.txDesc.focus();
+  }
+});
+
 
 els.parseBtn.addEventListener("click", () => {
   const text = els.importBox.value.trim();
@@ -172,29 +235,6 @@ els.calcBtn.addEventListener("click", () => {
   els.calcOut.textContent = `Valor futuro: ${formatCurrencyBRL(total)} em ${n} meses`;
 });
 
-els.txList.addEventListener("click", async (e) => {
-  const row = e.target.closest(".tx-row");
-  if (!row) return;
-  const id = Number(row.dataset.id);
-  if (e.target.classList.contains("del")) {
-    if (!confirm("Excluir esta transação?")) return;
-    deleteTx(id); await persist(); refresh(); return;
-  }
-  if (e.target.classList.contains("edit")) {
-    const item = query({ ...currentFilters }).find(x => x.id===id);
-    if (!item) return;
-    const novoDesc = prompt("Descrição:", item.descricao) ?? item.descricao;
-    const novoValor = Number(prompt("Valor:", String(item.valor)).replace(",",".") || item.valor);
-    const novaData = prompt("Data (YYYY-MM-DD):", item.data) || item.data;
-    const novaClasse = prompt("Classe (fixa/variavel/esporadica):", item.classe) || item.classe;
-    const novaCategoria = prompt("Categoria:", item.categoria||"") ?? item.categoria;
-    const novaConta = prompt("Conta:", item.conta||"") ?? item.conta;
-    const novaObs = prompt("Observação:", item.obs||"") ?? item.obs;
-    updateTx({ ...item, descricao:novoDesc, valor:novoValor, data:novaData, classe:novaClasse, categoria:novaCategoria, conta:novaConta, obs:novaObs });
-    await persist(); refresh();
-  }
-});
-
 els.btnExport.addEventListener("click", () => {
   const rows = query(currentFilters);
   const header = ["id","tipo","descricao","valor","data","classe","categoria","conta","obs"];
@@ -202,6 +242,16 @@ els.btnExport.addEventListener("click", () => {
     header.map(k => csvCell(r[k])).join(",")
   )).join("\n");
   downloadText(csv, `transacoes_${currentFilters.ano}-${currentFilters.mes}.csv`, "text/csv");
+});
+
+// FUNCIONALIDADE EXTRA: Listener para limpar filtros
+els.btnClearFilters.addEventListener("click", () => {
+  currentFilters = { mes: pad2(new Date().getMonth()+1), ano: String(new Date().getFullYear()), classe: "", tipo: "" };
+  els.fMes.value = currentFilters.mes;
+  els.fAno.value = currentFilters.ano;
+  els.fClasse.value = "";
+  els.fTipo.value = "";
+  refresh();
 });
 
 function addMonthsISO(dateStr, add){
@@ -239,7 +289,6 @@ function parseLines(lines) {
   const out = [];
   const today = new Date().toISOString().slice(0,10);
   for (const line of lines) {
-    // CSV: tipo,descricao,valor,data,classe[,categoria][,conta][,obs]
     const csv = line.split(",");
     if (csv.length >= 3 && /(receita|despesa)/i.test(csv[0])) {
       const [tipo, descricao, valor, data, classe, categoria="", conta="", obs=""] = csv.map(s => s.trim());
@@ -253,7 +302,6 @@ function parseLines(lines) {
       });
       continue;
     }
-    // WhatsApp-like: "+ 1200 salário fixa" or "- 45 mercado variavel"
     const m = line.match(/^([+\-])\s*([\d.,]+)\s+(.+)$/i);
     if (m) {
       const sign = m[1] === "+" ? 1 : -1;
@@ -273,6 +321,46 @@ function parseLines(lines) {
   return out;
 }
 
+function renderCharts(rows) {
+  const expenses = rows.filter(r => r.tipo === 'despesa');
+  const byCategory = expenses.reduce((acc, tx) => {
+    const cat = tx.categoria || "Sem Categoria";
+    acc[cat] = (acc[cat] || 0) + tx.valor;
+    return acc;
+  }, {});
+
+  const labels = Object.keys(byCategory);
+  const data = Object.values(byCategory);
+
+  const ctx = document.getElementById('categoryChart').getContext('2d');
+  
+  if (categoryChart) {
+    categoryChart.data.labels = labels;
+    categoryChart.data.datasets[0].data = data;
+    categoryChart.update();
+  } else {
+    categoryChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Despesas',
+          data: data,
+          backgroundColor: ['#ef4444', '#f97316', '#eab308', '#84cc16', '#22c55e', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef'],
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' },
+        }
+      }
+    });
+  }
+}
+
 function normClasse(txt="") {
   const t = txt.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
   if (t.includes("fixa")) return "fixa";
@@ -289,7 +377,6 @@ function guessClasse(desc) {
 }
 
 function pad2(n){ return String(n).padStart(2,"0"); }
-function formatDateInput(d){ return d; }
 function fmtDateBR(d){ const [y,m,da]=d.split("-"); return `${da}/${m}/${y}`; }
 function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
 function escapeHtml(s){ return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#039;"}[m])); }
